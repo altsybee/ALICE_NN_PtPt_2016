@@ -38,7 +38,7 @@ void tuneCanvas(TCanvas *canvas)
     canvas->SetRightMargin(0.05);
     canvas->SetTopMargin(0.05);
     canvas->SetBottomMargin(0.11);
-    canvas->SetGridy();
+//    canvas->SetGridy();
 }
 
 void drawGraph(TGraphErrors *gr, int marker, int color, const char* drawOpt =  "P same", double markerSize = -1 )
@@ -61,6 +61,17 @@ void drawTex(TLatex *tex, double fontSize = 0.045)
 
 }
 
+void calcPointsRatio(TGraphErrors *gr, TGraphErrors *grDenom)
+{
+    double x, y;
+    double x1, y1;
+    for ( int i = 0; i < gr->GetN(); i++ )
+    {
+        gr->GetPoint(i,x,y);
+        grDenom->GetPoint(i,x1,y1);
+        gr->SetPoint(i,x,y/y1);
+    }
+}
 
 void getQuantiles(TH1D *h, const int nq, double *yq)
 {
@@ -140,4 +151,17 @@ void drawCanvasWithClasses(TH1D *hist1D, TString label, const int nCentrBins, do
 
     canv_mult_withClasses->SaveAs( Form("output/canv_%s_classes_%d.eps", label.Data(), nCentrBins));
 
+}
+
+
+
+
+void shiftPointX(TGraphErrors *gr, double shift)
+{
+    double x, y;
+    for ( int i = 0; i < gr->GetN(); i++ )
+    {
+        gr->GetPoint(i,x,y);
+        gr->SetPoint(i,x+shift,y);
+    }
 }

@@ -27,7 +27,7 @@ void draw_bootstrap_results_LHC10h_plus_minus_ALL_EVENTS()
 
     f[0] = new TFile( "output_histos_graphs_LHC10h_MFminus.root" );
     f[1] = new TFile( "output_histos_graphs_LHC10h_MFplus.root" );
-    f[2] = new TFile( "output_histos_graphs_ALL_14mln.root" );
+    f[2] = new TFile( "DATA_ALL_EVENTS_with_BS_cW_10_5_2_5/output_histos_graphs_cW10_V0M.root" );
 
 
     const int nFiles = 3;
@@ -117,7 +117,7 @@ void draw_bootstrap_results_LHC10h_plus_minus_ALL_EVENTS()
     }
     leg->Draw();
 
-    // ##### bcorr as func of mult in cBins
+    // ##### grErrorFromNevents
     TGraphErrors *grErrorFromNevents[ nCentrBins[cW] ];
 
     for ( int cBin = 0; cBin < nCentrBins[cW]; cBin++ )
@@ -139,7 +139,7 @@ void draw_bootstrap_results_LHC10h_plus_minus_ALL_EVENTS()
         }
     }
 
-    //draw dependence of bCorr on mult
+    //draw grErrorFromNevents
     TCanvas *canv_error_from_nEvents = new TCanvas("canv_error_from_nEvents","canv_error_from_nEvents",250,150,700,600 );
     tuneCanvas(canv_error_from_nEvents);
 

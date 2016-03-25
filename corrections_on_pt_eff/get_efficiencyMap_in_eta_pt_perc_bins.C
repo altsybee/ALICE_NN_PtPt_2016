@@ -101,6 +101,8 @@ void stripHist1D( TH1D &hist )
 
 void get_efficiencyMap_in_eta_pt_perc_bins() //int fileId)
 {
+    gStyle->SetOptStat(0);
+
     TFile *myFile;
 
     //HIJING LHC11a10a_bis 900k events AOD162
@@ -137,7 +139,7 @@ void get_efficiencyMap_in_eta_pt_perc_bins() //int fileId)
     TCanvas *canv_QA_diff = new TCanvas("canv_QA_diff","canv_QA_diff",350,50,700,600 );
     tuneCanvas(canv_QA_diff);
 
-    const int nEtaWins = 1;
+    const int nEtaWins = 8;//1;
     const int nPhiWins = 1;
     const int nPtBins = 1;
 
@@ -291,6 +293,8 @@ void get_efficiencyMap_in_eta_pt_perc_bins() //int fileId)
 
                     //                    histEff->SetBinError(slice);
                     histEff->SetMarkerStyle(20);
+                    histEff->SetTitle(";p_{T}, GeV/c; efficiency");
+                    tuneHist1D(histEff);
                     histEff->DrawCopy( (slice==0 && etaW==0 && phiW==0 && ptW==0) ? "" : "same" );
 
 

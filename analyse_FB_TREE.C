@@ -2,6 +2,8 @@
 #include <TBranch.h>
 #include <TFile.h>
 
+#include "TSystemDirectory.h"
+#include "TSystemFile.h"
 
 #include "TObject.h"
 #include "TGraphErrors.h"
@@ -51,7 +53,7 @@ bool checkEventSelection( float &cEstimator
     cEstimator = -1;
 
     // check isPileupSPD
-    if ( brIsPileupSPD == 1 )
+    if(0)if ( brIsPileupSPD == 1 )
     {
         nRejectedByPileup++;
         return false;
@@ -59,12 +61,14 @@ bool checkEventSelection( float &cEstimator
 
     // vertex Z cut!!!
     if ( USE_VERTEXZ_CUT && fabs(br_vertexZ) > kVertexZcut
-         //         && fabs(br_vertexZ) > 8
+         //                  || fabs(br_vertexZ) < 5 // TEST INFLUENCE FROM TPC MEMBRANE!
          //         && br_vertexZ < 0 //reject vertZ<0 ! -> keep vertZ>0
          //         && br_vertexZ > 0 //reject vertZ>0 ! -> keep vertZ<0
          )
         return false;
 
+    //    cout << ">>>    vertexZ bool decision =" << (USE_VERTEXZ_CUT && fabs(br_vertexZ) > kVertexZcut
+    //            && fabs(br_vertexZ) < 7.5) << endl;
 
     if ( flag_V0M_ZDC_CL1 == 0 )
     {
@@ -128,16 +132,65 @@ TTree *getTreeFromFile( TFile *myFile, int listIdByHand = -1 )
     return t1;
 }
 
-void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "MergedOutput.root")
+
+void get_run_list( int &nFiles, TString *&runListFullPath, int *&runListNumbers, const char *dirBase = "", const char *taskdirname=""
+        , const char *begins="AnalysisResults", const char *ext=".root" )
 {
+    //    runList = new TString[200];
+    int counter = 0;
+
+    TString dirname = Form( "%s/%s", dirBase, taskdirname);
+
+    TSystemDirectory dir( dirname.Data(), dirname.Data() );
+    TList *files = dir.GetListOfFiles();
+
+    dir.ls();
+
+    cout << "Runlist: "  << endl;
+    if (files)
+    {
+        TSystemFile *systFile;
+        TString fname;
+        TIter next(files);
+        while ((systFile=(TSystemFile*)next()))
+        {
+            fname = systFile->GetName();
+            if (!systFile->IsDirectory() && fname.BeginsWith(begins) && fname.EndsWith(ext))
+            {
+                //strip run number:
+                TString runName = fname;
+                runName.Remove(0,16);
+                runName.Remove( runName.Length()-5, 5);
+                runListNumbers[nFiles+counter] = runName.Atoi();
+
+                //remember full path to file!!!
+                runListFullPath[nFiles+counter] = Form( "%s/%s", dirname.Data(), fname.Data() ); //runName.Atoi();
+
+                cout << runListFullPath[nFiles+counter] << endl;
+                counter++;
+            }
+        }
+    }
+    cout << endl;
+    nFiles += counter;
+}
+
+
+
+
+void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
+                      int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "MergedOutput.root")
+{
+    //int LIST_ID_FOR_INEFF = -1;
+
     // !!! important for branch V0M below!
     bool isAnalysing502 = 0;
     bool isAMPT_kine = 0;
     //int LIST_ID_FOR_INEFF = 7;
 
 
-    const int nFiles = 30; //24+22; //3;//10;
-    TFile *myFiles[nFiles];
+    //    const int nFiles = 24+21; //30; //24+22; //3;//10;
+    //    TFile *myFiles[nFiles];
 
     // FULL STATISTICS
     // LHC10h
@@ -152,57 +205,118 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     //    isAMPT_kine = 1;
     //    myFiles[0] = new TFile( "/Users/macbook/alice/aliceAnalysis/results/task_2016_02_29_PbPb_AMPT_LHC13f3c_StrMelt_ON_rescatON_8_eta_wins/merged_results_with_scaled_factor.root" );
 
+
+
+
     // 11.03.2016: INEFF LHC10h
     //Runlist MF+: (part of it)
-    Int_t runlist[] =
-    {
-        138583, 138872, 139173, 139438,
-        138621, 139028, 139309, 139465,
-        138624, 139029, 139310, 139503,
-        138638, 139036, 139314, 139505,
-        138652, 139037, 139328, 139507,
-        138653, 139038, 139329, 139510,
-        138870, 139105, 139360, 138871,
-        139107, 139437,
-//        //24 runs:
-//        139510, 139507, 139505, 139503,
-//        139465, 139438, 139437, 139360,
-//        139329, 139328, 139314, 139310,
-//        139309, 139173, 139107, 139105,
-//        139038, 139037, 139036, 139029,
-//        139028, 138872, 138871, 138870,
+    //    Int_t runlist[1000];// =
+    //    {
+    //        //ALL:
+    //        //24 runs:
+    //        139510, 139507, 139505, 139503,
+    //        139465, 139438, 139437, 139360,
+    //        139329, 139328, 139314, 139310,
+    //        139309, 139173, 139107, 139105,
+    //        139038, 139037, 139036, 139029,
+    //        139028, 138872, 138871, 138870,
 
-//        //21 runs:
-//        138837, 138732, 138730, 138666,
-//        138662, 138653,
-    };
+    //        //21 runs:
+    //        138837, 138732, 138730, 138666,
+    //        138662, 138653, 138652, 138638,
+    //        138624, 138621, 138583, 138582,
+    //        138579, 138578, 138534, 138469,
+    //        138442, 138439, 138438, 138396,
+    //        138364
+
+
+    //FOR INEFF DEP STUDY:
+    //        138583, 138872, 139173, 139438,
+    //        138621, 139028, 139309, 139465,
+    //        138624, 139029, 139310, 139503,
+    //        138638, 139036, 139314, 139505,
+    //        138652, 139037, 139328, 139507,
+    //        138653, 139038, 139329, 139510,
+    //        138870, 139105, 139360, 138871,
+    //        139107, 139437,
+    //        //24 runs:
+    //        139510, 139507, 139505, 139503,
+    //        139465, 139438, 139437, 139360,
+    //        139329, 139328, 139314, 139310,
+    //        139309, 139173, 139107, 139105,
+    //        139038, 139037, 139036, 139029,
+    //        139028, 138872, 138871, 138870,
+
+    //        //21 runs:
+    //        138837, 138732, 138730, 138666,
+    //        138662, 138653,
+    //    };
 
 
     //Runlist MF-:
-//    Int_t runlist[]=
-//    {
-//        //24 runs:
-//        138275, 138225, 138201, 138197,
-//        138192, 138190, 137848, 137844,
-//        137752, 137751, 137724, 137722,
-//        137718, 137704, 137693, 137692,
-//        137691, 137686, 137685, 137639,
-//        137638, 137608, 137595, 137549,
+    //    Int_t runlist[]=
+    //    {
+    //        //24 runs:
+    //        138275, 138225, 138201, 138197,
+    //        138192, 138190, 137848, 137844,
+    //        137752, 137751, 137724, 137722,
+    //        137718, 137704, 137693, 137692,
+    //        137691, 137686, 137685, 137639,
+    //        137638, 137608, 137595, 137549,
 
-//        //22 runs:   //137366 excluded (no such a run?) => 22 runs
-//        137546, 137544, 137541, 137539,
-//        137531, 137530, 137443, 137441,
-//        137440, 137439, 137434, 137432,
-//        137431, 137430, /*137366,*/ 137243,
-//        137236, 137235, 137232, 137231,
-//        137230, 137162, 137161
-//    };
+    //        //22 runs:   //137366 excluded (no such a run?) => 22 runs
+    //        137546, 137544, 137541, 137539,
+    //        137531, 137530, 137443, 137441,
+    //        137440, 137439, 137434, 137432,
+    //        137431, 137430, /*137366,*/ 137243,
+    //        137236, 137235, 137232, 137231,
+    //        137230, 137162, 137161
+    //    };
+
+    const char *dirBase = "/Users/macbook/alice/aliceAnalysis/results";
+
+    //LHC10h plus, minus:
+    const char *taskdirname = "task_2016_02_26_PbPb_Data_LHC10h_AOD160_8eW_phi1_pt02_20_FB_TREE_MFplus_all";
+    const char *taskdirname2 = "task_2016_02_26_PbPb_Data_LHC10h_AOD160_8eW_phi1_pt02_20_FB_TREE_MFminus_all";
+    //    const char *taskdirname = "task_2016_03_09_PbPb_MCAOD_LHC11a10a_bis_AOD162_Efficiency_kine_vs_reco_fixedCentrBins_try2";
+
+
+    //LHC10h plus, minus INEFF STUDY:
+    //    const char *taskdirname  = "task_2016_03_10_PbPb_Data_LHC10h_AOD160_3etaWins_phi1_pt02_20_FB_TREE_INEFF_BY_HAND_HIST3D/MFplus";
+    //    const char *taskdirname2 = "task_2016_03_10_PbPb_Data_LHC10h_AOD160_3etaWins_phi1_pt02_20_FB_TREE_INEFF_BY_HAND_HIST3D/MFminus";
+
+    //LHC NEW HIJING RECO KINE:
+    //    const char *taskdirname  = "task_2016_03_16_PbPb_MCAOD_LHC11a10a_bis_AOD162_Efficiency_kine_vs_reco_KINE_AND_RECO";
+
+    int nFiles = 0; // = 24+21; //30; //24+22; //3;//10;
+    TString *runFullPathList = new TString[400];
+    int *runListNumbers = new int[400];
+
+    get_run_list( nFiles, runFullPathList, runListNumbers, dirBase, taskdirname, "AnalysisResults" );
+    get_run_list( nFiles, runFullPathList, runListNumbers, dirBase, taskdirname2, "AnalysisResults" );
+
+    cout << ">>> nFiles = " << nFiles << endl;
+    TFile *myFiles[400];
+
+    //fileIdByHand = 1; // !!!!
+    //    return;
+
+    if ( fileIdByHand >= 0 )
+    {
+        myFiles[0] = new TFile( runFullPathList[fileIdByHand] );
+        runListNumbers[0] = runListNumbers[fileIdByHand];
+        nFiles = 1;
+    }
+    else //usual case:
+    {
+        for (Int_t i=0; i<nFiles; i++)
+            myFiles[i] = new TFile( runFullPathList[i] );
+    }
 
 
 
-    for (Int_t i=0; i<nFiles; i++)
-            myFiles[i] = new TFile( Form("/Users/macbook/alice/aliceAnalysis/results/task_2016_03_10_PbPb_Data_LHC10h_AOD160_3etaWins_phi1_pt02_20_FB_TREE_INEFF_BY_HAND_HIST3D/MFplus/AnalysisResults.000%d.root", runlist[i] ) );
-//    myFiles[i] = new TFile( Form("/Users/macbook/alice/aliceAnalysis/results/task_2016_03_10_PbPb_Data_LHC10h_AOD160_3etaWins_phi1_pt02_20_FB_TREE_INEFF_BY_HAND_HIST3D/MFminus/AnalysisResults_000%d.root", runlist[i] ) );
+    //        myFiles[i] = new TFile( Form("/Users/macbook/alice/aliceAnalysis/results/task_2016_03_10_PbPb_Data_LHC10h_AOD160_3etaWins_phi1_pt02_20_FB_TREE_INEFF_BY_HAND_HIST3D/MFplus/AnalysisResults.000%d.root", runFullPathList[i] ) );
+    //    myFiles[i] = new TFile( Form("/Users/macbook/alice/aliceAnalysis/results/task_2016_03_10_PbPb_Data_LHC10h_AOD160_3etaWins_phi1_pt02_20_FB_TREE_INEFF_BY_HAND_HIST3D/MFminus/AnalysisResults_000%d.root", runFullPathList[i] ) );
 
     //    myFiles[0] = new TFile( "/Users/macbook/alice/aliceAnalysis/results/task_2016_02_26_PbPb_Data_LHC10h_AOD160_8eW_phi1_pt02_20_FB_TREE_MFplus_all/MergedOutput.root" );
     //    myFiles[1] = new TFile( "/Users/macbook/alice/aliceAnalysis/results/task_2016_02_26_PbPb_Data_LHC10h_AOD160_8eW_phi1_pt02_20_FB_TREE_MFminus_all/MergedOutput.root" );
@@ -259,13 +373,25 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
         nEvents += nEvInTrees[i];
     }
 
-    //    nEvents = 5000000;
+    if ( nEventsByHand >= 0 )
+        nEvents = nEventsByHand;
+
+    //        nEvents = 1000000;
     //    nEvents = trees[0]->GetEntries() + trees[1]->GetEntries();
     //    nEvents = trees[0]->GetEntries();
-    cout <<"nEvents = " << nEvents << endl;
+    //    cout <<"nEvents = " << nEvents << endl;
 
 
 
+    //if take 1 run: apply cut on number of events!
+    if(0)if ( fileIdByHand >=0 )
+    {
+        if ( nEvents < 1e5 || nEvents > 6e5)
+        {
+            myFiles[0]->Close();
+            return;
+        }
+    }
 
     // ########## Branches for event-info
     Bool_t brIsPileupSPD = 0;
@@ -313,12 +439,42 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
             }
     }
 
-    // ##### QA pre-loop (for mult binning)
+    // ##### QA pre-loop (for mult binning, etc.)
 
-    TH1D *hist1D_QA_percentilesEstimator = new TH1D( "hist1D_QA_percentilesEstimator", "hist1D_QA_percentilesEstimator;percentile;entries", 3001, -0.5, 300.5);
+    TH1D *hist1D_QA_percentilesEstimator = new TH1D( "hist1D_QA_percentilesEstimator", "hist1D_QA_percentilesEstimator;percentile;entries", 302, -1, 301);
     TH1D *hist1D_QA_multALL = new TH1D( "hist1D_QA_multALL", "hist1D_QA_multALL;mult;entries", 3001, -0.5, 3000.5);
 
     TH2D *hist2D_ESTIMATOR_VS_multTPC = new TH2D( "hist2D_ESTIMATOR_VS_multTPC", "hist2D_ESTIMATOR_VS_multTPC;estimator;mult in TPC", 4080, -2, 100, 301, -0.5, 3000.5);
+
+
+    //QA mult in eta win IN EACH TREE (=run-by-run):
+    TH1D *hist1D_multInWin[nTrees];
+    TH1D *hist1D_vertexZ[nTrees];
+
+    //23.03.2016: new more useful histos: mult distr in each win run-by-run:
+    //    TH1D *hist1D_multDistrInWin[nTrees][nEtaWins];
+    //    TH1D *hist1D_avPtDistrInWin[nTrees][nEtaWins];
+    for ( int i = 0; i < nTrees; i++ )
+    {
+        TString strMultDistr_name = Form("hist1D_multDistr_run_%d", runListNumbers[i] );//, etaW );
+        //            cout << "strMultDistr_name=" << strMultDistr_name << endl;
+        hist1D_multInWin[i] = new TH1D( strMultDistr_name, ";etaWin;n tracks", 2*nEtaBr, -0.5, 2*nEtaBr-0.5 );
+
+        TString strVertexZ_name = Form("hist1D_vertZdistr_run_%d", runListNumbers[i] );//, etaW );
+        //            cout << "strVertexZ_name=" << strVertexZ_name << endl;
+        hist1D_vertexZ[i] = new TH1D( strVertexZ_name, ";vertex Z, cm;n events", 300, 15, 15 );
+
+        //23.03.2016: new more useful histos: mult distr in each win run-by-run:
+        //        for ( int etaW = 0; etaW < nEtaBr; etaW++ )
+        //        {
+        //            strMultDistr_name = Form("hist1D_multDistr_run_%d_inWin%d", runListNumbers[i], etaW );
+        //            hist1D_multDistrInWin[i][etaW] = new TH1D( strMultDistr_name, ";n tracks;n events", 400, -0.5, 400-0.5 );
+
+        //            TString strAvPtDistr_name = Form("hist1D_avPtDistr_run_%d_inWin%d", runListNumbers[i], etaW );
+        //            hist1D_avPtDistrInWin[i][etaW] = new TH1D( strAvPtDistr_name, ";#LTp_{T}#GT;n events", 400, 0, 2 );
+        //        }
+
+    }
 
 
     // ##### pre-loop over events for mult bins
@@ -355,6 +511,8 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
         if ( !isEventSelected )
             continue;
 
+        //                cout << ">>> br_vertexZ=" << br_vertexZ << endl;
+
         hist1D_QA_percentilesEstimator->Fill(cEstimator);
 
         //calc mult in whole TPC using wins:
@@ -366,7 +524,31 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
                     multTPC += br[etaW][phiW].nF + br[etaW][phiW].nB;
             else
                 multTPC += (br[0][phiW].nF + br[2][phiW].nF) + (br[0][phiW].nB + br[2][phiW].nB);
+
+            //fill QA mult in eta wins run-by-run
+            for ( int etaW = 0; etaW < nEtaBr; etaW++ )
+            {
+                //B
+                double binContent = hist1D_multInWin[treeId]->GetBinContent(etaW+1);
+                hist1D_multInWin[treeId]->SetBinContent(etaW+1, binContent + br[etaW][phiW].nB);
+                //new:
+                //                hist1D_multDistrInWin[treeId][etaW]->Fill( br[etaW][phiW].nB);
+                //                if ( br[etaW][phiW].nB > 0 )
+                //                    hist1D_avPtDistrInWin[treeId][etaW]->Fill( br[etaW][phiW].PtB );// / br[etaW][phiW].nB);
+
+                //F
+                int etaWinMod = 2*nEtaBr-1-etaW;
+                binContent = hist1D_multInWin[treeId]->GetBinContent(etaWinMod+1);
+                hist1D_multInWin[treeId]->SetBinContent(etaWinMod+1, binContent + br[etaW][phiW].nF);
+                //new:
+                //                hist1D_multDistrInWin[treeId][etaWinMod]->Fill( br[etaW][phiW].nF);
+                //                if ( br[etaW][phiW].nF > 0 )
+                //                    hist1D_avPtDistrInWin[treeId][etaWinMod]->Fill( br[etaW][phiW].PtF );// / br[etaW][phiW].nF);
+
+            }
         }
+
+        hist1D_vertexZ[treeId]->Fill( br_vertexZ );
 
         //        cout << "multTPC=" << multTPC << endl;
         hist1D_QA_multALL->Fill(multTPC);
@@ -377,8 +559,24 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     } // end of pre-loop
 
 
+    cout << ">>> nAccepted_PRE_LOOP = " << nAccepted_PRE_LOOP << endl;
     cout << ">>> nRejectedByPileup_PRE_LOOP = " << nRejectedByPileup_PRE_LOOP << endl;
 
+
+    //write run-by-run QA mult histos to file
+    TFile *file_QA_mult_in_eta_wins_RunByRun = new TFile( "histos_QA_mult_in_eta_wins_run-by-run.root", "RECREATE" );
+    for ( int i = 0; i < nTrees; i++ )
+    {
+        //        for ( int etaW = 0; etaW < 2*nEtaBr; etaW++ )
+        hist1D_multInWin[i]->Write();
+        hist1D_vertexZ[i]->Write();
+        //        for ( int etaW = 0; etaW < nEtaBr; etaW++ )
+        //        {
+        //            hist1D_multDistrInWin[i][etaW]->Write();
+        //            hist1D_avPtDistrInWin[i][etaW]->Write();
+        //        }
+    }
+    file_QA_mult_in_eta_wins_RunByRun->Close();
 
 
     // ########## QA PLOTTING:
@@ -407,10 +605,14 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     TF1 *fBorderToCutOutliersLower = 0x0;
     TF1 *fBorderToCutOutliersUpper = 0x0;
 
-    if ( isAnalysing502 == 0 )
+    if ( isAnalysing502 == 0 ) //=2.76 default analysis
     {
         fBorderToCutOutliersLower = new TF1("fBorderToCutOutliersLower","-120+1800*exp(-0.042*x)",0,90);
         fBorderToCutOutliersUpper = new TF1("fBorderToCutOutliersUpper","50+2450*exp(-0.038*x)",0,90);
+
+        //tight cuts:
+        //        fBorderToCutOutliersLower = new TF1("fBorderToCutOutliersLower","-120+2000*exp(-0.042*x)",0,90);
+        //        fBorderToCutOutliersUpper = new TF1("fBorderToCutOutliersUpper","-100+2400*exp(-0.034*x)",0,90);
 
 
         if ( LIST_ID_FOR_INEFF > 0 ) // RECREATE LOWER BOUND: to account for ineff loses in mult!
@@ -439,7 +641,7 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
 
 
 
-    //    return;
+    //            return;
 
     // ########## Centrality bins:
     //    const int nCW = 2; //nCentrWidths
@@ -473,10 +675,40 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     //    const double cStep[nCW] = { 5, 2.5,  2.5, 1.0, 1.0 }; //centrality bins step
     //    const int nCentrBins[nCW] = { 17, 35, 36,  90, 90 }; //n centrality bins
 
+    //USED IN FINAL ANALYSIS (width=10%):
+    //    const int nCW = 1; //nCentrWidths
+    //    const double cWidths[nCW] = { 10 }; //width of the centrality bins
+    //    const double cStep[nCW] = { 5 }; //centrality bins step
+    //    //    const int nCentrBins[nCW] = { 17 }; //n centrality bins
+    //    const int nCentrBins[nCW] = { 15 }; //n centrality bins
     const int nCW = 1; //nCentrWidths
     const double cWidths[nCW] = { 10 }; //width of the centrality bins
-    const double cStep[nCW] = { 5 }; //centrality bins step
-    const int nCentrBins[nCW] = { 17 }; //n centrality bins
+    const double cStep[nCW] = { 10 }; //centrality bins step
+    const int nCentrBins[nCW] = { 8 }; //n centrality bins
+
+    //USED IN FINAL ANALYSIS (width=5%):
+    //    const int nCW = 1; //nCentrWidths
+    //    const double cWidths[nCW] = { 5 }; //width of the centrality bins
+    //    const double cStep[nCW] = { 5 }; //centrality bins step
+    //    const int nCentrBins[nCW] = { 17 }; //n centrality bins
+
+    //USED IN FINAL ANALYSIS (width=2.5%):
+    //    const int nCW = 1; //nCentrWidths
+    //    const double cWidths[nCW] = { 2.5 }; //width of the centrality bins
+    //    const double cStep[nCW] = { 2.5 }; //centrality bins step
+    //    const int nCentrBins[nCW] = { 34 };//18 };//34 }; //n centrality bins
+
+    //USED IN FINAL ANALYSIS (width=2%):
+    //    const int nCW = 1; //nCentrWidths
+    //    const double cWidths[nCW] = { 2 }; //width of the centrality bins
+    //    const double cStep[nCW] = { 2 }; //centrality bins step
+    //    const int nCentrBins[nCW] = { 42 };//18 };//34 }; //n centrality bins
+
+    //USED IN FINAL ANALYSIS (width=1%):
+    //    const int nCW = 1; //nCentrWidths
+    //    const double cWidths[nCW] = { 1 }; //2 }; //width of the centrality bins
+    //    const double cStep[nCW] = { 1 }; //centrality bins step
+    //    const int nCentrBins[nCW] = { 83 };//18 };//34 }; //n centrality bins
 
     //        const int nCW = 2; //nCentrWidths
     //        const double cWidths[nCW] = { 10, 5.001 }; //width of the centrality bins
@@ -484,6 +716,15 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     //        const int nCentrBins[nCW] = { 17, 35 }; //n centrality bins
 
 
+    //USED IN FINAL ANALYSIS: many centralities in one run
+//        const int nCW = 4; //nCentrWidths
+//        const double cWidths[nCW] = { 10, 5, 2, 1 };  //width of the centrality bins
+//        const double cStep[nCW] = { 10, 5, 2, 1 }; //centrality bins step
+//        const int nCentrBins[nCW] = { 8, 17, 42, 83 };//18 };//34 }; //n centrality bins
+//        const int nCW = 3; //nCentrWidths
+//        const double cWidths[nCW] = { 10, 5, 2  };  //width of the centrality bins
+//        const double cStep[nCW] = { 10, 5, 2  }; //centrality bins step
+//        const int nCentrBins[nCW] = { 8, 17, 42  };//18 };//34 }; //n centrality bins
 
 
 
@@ -543,7 +784,9 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     CentralityOccupancy cOccupancy[nCW][maxNCentrBins];
 
     bool useCentrPercOrMult = 0; // 0 - perc bins, 1-mult bins
-    bool doBootstrap = 0;
+    bool doBootstrap = 1;
+    bool doBS_in_only_1_cBin = 0;
+    bool flag_fill_run_by_run_histos_in_wins = 0; //from 23.03.2016
 
     for ( int cW = 0; cW < nCW; cW++ )
         for ( int cBin = 0; cBin < nCentrBins[cW]; cBin++ )
@@ -575,6 +818,9 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
                         wins[cW][cBin][etaW][phiW].init(cBinMin, cBinMax, etaW, phiW);
                     else
                         wins[cW][cBin][etaW][phiW].init(cBinMin, cBinMax, etaW, phiW, nAccepted_PRE_LOOP);
+
+                    if( flag_fill_run_by_run_histos_in_wins )
+                        wins[cW][cBin][etaW][phiW].initRunByRunHistos( nTrees, runListNumbers );
                 }
         }
 
@@ -698,7 +944,7 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
                         _PtF = _nF_PtF / _nF;
                     if ( _nB > 0 )
                         _PtB = _nB_PtB / _nB;
-                    wins[cW][cBin][etaW][0].fill( centrValue, _nF, _nB, _PtF, _PtB );
+                    wins[cW][cBin][etaW][0].fill( centrValue, _nF, _nB, _PtF, _PtB, treeId );
                 }
 
                 //... IA: po-normalnomu bylo tak:
@@ -720,73 +966,11 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     // ########## PREPARE OUTPUT ROOT-FILE:
     //    TFile *fileOutput = new TFile( "output_histos_graphs.root", "RECREATE" );
     TString strOutFile = Form( "output_histos_graphs_ineff_file%d.root", LIST_ID_FOR_INEFF );
+    //    TString strOutFile = Form( "output_histos_graphs_nEvents_%d.root", nEventsByHand );
+    //    TString strOutFile = Form( "output_histos_graphs_run_%d.root", runListNumbers[0] );
+
     TFile *fileOutput = new TFile( strOutFile, "RECREATE" );
 
-    // ########## BOOTSTRAPING
-    TGraphErrors *gr_BS_PtPt[nCW][nEtaWins][nPhiWins];// = new TGraphErrors;
-    if ( doBootstrap )
-    {
-        cout << "Start bootstrapping..." << endl;
-
-        TCanvas *canv_bootStrapPhiWins = new TCanvas("canv_bootStrapPhiWins","canv_bootStrapPhiWins",350,150,900,700 );
-
-        for ( int cW = 0; cW < nCW; cW++ )
-        {
-            //                for ( int etaW = 0; etaW < nEtaWins; etaW++ )
-            for ( int phiW = 0; phiW < nPhiWins; phiW++ )
-            {
-                int etaW = 0; // TMP, FIXED FOR TESTS!
-                gr_BS_PtPt[cW][etaW][phiW] = new TGraphErrors;
-                gr_BS_PtPt[cW][etaW][phiW]->SetName( Form("gr_BS_PtPt_cW%d_etaW%d_phiW%d", cW, etaW, phiW) );
-                for ( int cBin = /*nCentrBins[cW]-3*/ 0; cBin < nCentrBins[cW]; cBin++ )
-                {
-                    cout << "  processing cBin " << cBin << "..." << endl;
-
-                    WinPair *w = &wins[cW][cBin][etaW][phiW];
-
-                    // DO BOOTSTRAP
-                    w->performBootstrapping(1);
-
-                    double BS_bCorr_mean = w->hist1D_bCorr_BS_PtPt->GetMean();
-                    double BS_bCorr_sigma = w->hist1D_bCorr_BS_PtPt->GetRMS();
-
-                    float centr = -1;
-                    if ( useCentrPercOrMult == 0 )
-                        centr = w->cBinMin + (w->cBinMax - w->cBinMin)/2;
-                    else
-                        centr = multBinCenters[cW][cBin];
-
-                    gr_BS_PtPt[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
-                    gr_BS_PtPt[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
-
-
-                    w->hist1D_bCorr_BS_PtPt->SetLineColor(kOrange - 5 + cW);
-
-                    if (cBin==0)
-                        w->hist1D_bCorr_BS_PtPt->DrawCopy();
-                    else
-                        w->hist1D_bCorr_BS_PtPt->DrawCopy("same");
-
-                    w->hist1D_bCorr_BS_PtPt->Write();
-                } // end of cBin
-                gr_BS_PtPt[cW][etaW][phiW]->SetLineColor(kMagenta);
-                gr_BS_PtPt[cW][etaW][phiW]->SetMarkerColor(kMagenta);
-                gr_BS_PtPt[cW][etaW][phiW]->SetMarkerStyle(24);
-                gr_BS_PtPt[cW][etaW][phiW]->Write();
-            } // end of phiW
-        } // end of cW
-
-        TCanvas *canv_GrCoeff = new TCanvas("canv_GrCoeff","canv_GrCoeff",20,150,900,700 );
-        tuneCanvas(canv_GrCoeff);
-        //        grC2->Draw("APL");
-
-        //        grFromFit2D->SetLineColor(kRed);
-        //        grFromFit2D->DrawClone("PL");
-
-        tuneGraphAxisLabels(gr_BS_PtPt[0][0][0]);
-        gr_BS_PtPt[0][0][0]->DrawClone("APL");
-
-    } // end of bootstrap
 
 
     //    return;
@@ -808,6 +992,17 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
 
                     wins[cW][cBin][etaW][phiW].hist1D_QA_PtF->Write();
                     wins[cW][cBin][etaW][phiW].hist1D_QA_PtB->Write();
+
+                    if ( flag_fill_run_by_run_histos_in_wins )
+                    {
+                        for ( int treeId = 0; treeId < nTrees; treeId++ )
+                        {
+                            wins[cW][cBin][etaW][phiW].hist1D_multDistr_RunByRun_F[treeId]->Write();
+                            wins[cW][cBin][etaW][phiW].hist1D_multDistr_RunByRun_B[treeId]->Write();
+                            wins[cW][cBin][etaW][phiW].hist1D_avPtDistr_RunByRun_F[treeId]->Write();
+                            wins[cW][cBin][etaW][phiW].hist1D_avPtDistr_RunByRun_B[treeId]->Write();
+                        }
+                    }
 
                     //                    wins[cW][cBin][etaW][phiW].hist2D_NN->ProfileX()->Write();
                     //                    wins[cW][cBin][etaW][phiW].hist2D_PtPt->ProfileX()->Write();
@@ -912,6 +1107,141 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
 
 
 
+    // ########## BOOTSTRAPING
+    TGraphErrors *gr_BS_NN[nCW][nEtaWins][nPhiWins];// = new TGraphErrors;
+    TGraphErrors *gr_BS_PtPt[nCW][nEtaWins][nPhiWins];// = new TGraphErrors;
+    if ( doBootstrap )
+    {
+        cout << "Start bootstrapping..." << endl;
+
+        TCanvas *canv_bootStrapPhiWins = new TCanvas("canv_bootStrapPhiWins","canv_bootStrapPhiWins",350,150,900,700 );
+
+        for ( int cW = 0; cW < nCW; cW++ )
+        {
+            //                for ( int etaW = 0; etaW < nEtaWins; etaW++ )
+            for ( int phiW = 0; phiW < nPhiWins; phiW++ )
+            {
+                int etaW = 0; // TMP, FIXED FOR TESTS!
+
+                gr_BS_NN[cW][etaW][phiW] = new TGraphErrors;
+                gr_BS_NN[cW][etaW][phiW]->SetName( Form("gr_BS_NN_cW%d_etaW%d_phiW%d", cW, etaW, phiW) );
+                gr_BS_PtPt[cW][etaW][phiW] = new TGraphErrors;
+                gr_BS_PtPt[cW][etaW][phiW]->SetName( Form("gr_BS_PtPt_cW%d_etaW%d_phiW%d", cW, etaW, phiW) );
+
+                for ( int cBin = /*nCentrBins[cW]-3*/ 0; cBin < nCentrBins[cW]; cBin++ )
+                {
+                    WinPair *w = &wins[cW][cBin][etaW][phiW];
+
+                    float centr = -1;
+                    if ( useCentrPercOrMult == 0 )
+                        centr = w->cBinMin + (w->cBinMax - w->cBinMin)/2;
+                    else
+                        centr = multBinCenters[cW][cBin];
+
+
+                    if ( !doBS_in_only_1_cBin || (doBS_in_only_1_cBin && cBin == 0) )
+                    {
+                        // DO BOOTSTRAP NN
+                        if (1)
+                        {
+                            cout << "  NN: processing cBin " << cBin << "..." << endl;
+                            w->performBootstrapping(0);
+
+                            double BS_bCorr_mean = w->hist1D_bCorr_BS_NN->GetMean();
+                            double BS_bCorr_sigma = w->hist1D_bCorr_BS_NN->GetRMS();
+
+                            gr_BS_NN[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
+                            gr_BS_NN[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
+
+                            w->hist1D_bCorr_BS_NN->Write();
+                        }
+
+                        // DO BOOTSTRAP PtPt
+                        if (1)
+                        {
+                            cout << "  PtPt: processing cBin " << cBin << "..." << endl;
+                            w->performBootstrapping(1);
+
+                            double BS_bCorr_mean = w->hist1D_bCorr_BS_PtPt->GetMean();
+                            double BS_bCorr_sigma = w->hist1D_bCorr_BS_PtPt->GetRMS();
+
+                            gr_BS_PtPt[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
+                            gr_BS_PtPt[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
+
+                            //QA drawing for BS PtPt:
+                            w->hist1D_bCorr_BS_PtPt->SetLineColor(kOrange - 5 + cW);
+
+                            if (cBin==0)
+                                w->hist1D_bCorr_BS_PtPt->DrawCopy();
+                            else
+                                w->hist1D_bCorr_BS_PtPt->DrawCopy("same");
+
+                            w->hist1D_bCorr_BS_PtPt->Write();
+                        }
+                    } // end of if doBS_in_only_1_cBin
+                    else // if doBS_in_only_1_cBin, copy BS results in cBin=0 to all other cBins!
+                    {
+                        // COPY BOOTSTRAP RESULTS FROM cBin==0 NN
+                        if (1)
+                        {
+                            cout << "  NN: copy BS results for cBin " << cBin << "..." << endl;
+
+                            double BS_bCorr_mean = wins[cW][cBin][etaW][phiW].NN_bCorr; //take pre-calculated bCorr
+                            double BS_bCorr_sigma = wins[cW][0][etaW][phiW].hist1D_bCorr_BS_NN->GetRMS();
+
+                            gr_BS_NN[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
+                            gr_BS_NN[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
+                        }
+
+                        // COPY BOOTSTRAP RESULTS FROM cBin==0 PtPt
+                        if (1)
+                        {
+                            cout << "  PtPt: copy BS results for cBin " << cBin << "..." << endl;
+
+                            double BS_bCorr_mean = wins[cW][cBin][etaW][phiW].PtPt_bCorr; //take pre-calculated bCorr
+                            double BS_bCorr_sigma = wins[cW][0][etaW][phiW].hist1D_bCorr_BS_PtPt->GetRMS();
+
+                            gr_BS_PtPt[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
+                            gr_BS_PtPt[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
+
+                            //QA drawing for BS PtPt:
+                            w->hist1D_bCorr_BS_PtPt->SetLineColor(kOrange - 5 + cW);
+                            w->hist1D_bCorr_BS_PtPt->DrawCopy("same");
+                        }
+                    } // end of copy BS results in cBin=0 to all other cBins
+                } // end of cBin
+                // #### write BS graphs
+                //BS NN graph
+                gr_BS_NN[cW][etaW][phiW]->SetLineColor(kMagenta);
+                gr_BS_NN[cW][etaW][phiW]->SetMarkerColor(kMagenta);
+                gr_BS_NN[cW][etaW][phiW]->SetMarkerStyle(24);
+                gr_BS_NN[cW][etaW][phiW]->Write();
+                //BS PtPt graph
+                gr_BS_PtPt[cW][etaW][phiW]->SetLineColor(kMagenta);
+                gr_BS_PtPt[cW][etaW][phiW]->SetMarkerColor(kMagenta);
+                gr_BS_PtPt[cW][etaW][phiW]->SetMarkerStyle(24);
+                gr_BS_PtPt[cW][etaW][phiW]->Write();
+            } // end of phiW
+        } // end of cW
+
+        //NN
+        TCanvas *canv_GrCoeff_BS_NN = new TCanvas("canv_GrCoeff_BS_NN","canv_GrCoeff_BS_NN",80,150,900,700 );
+        tuneCanvas(canv_GrCoeff_BS_NN);
+        tuneGraphAxisLabels(gr_BS_NN[0][0][0]);
+        gr_BS_NN[0][0][0]->DrawClone("APL");
+
+
+        //PtPt
+        TCanvas *canv_GrCoeff_BS_PtPt = new TCanvas("canv_GrCoeff_BS_PtPt","canv_GrCoeff_BS_PtPt",80,150,900,700 );
+        tuneCanvas(canv_GrCoeff_BS_PtPt);
+        //        grC2->Draw("APL");
+
+        //        grFromFit2D->SetLineColor(kRed);
+        //        grFromFit2D->DrawClone("PL");
+
+        tuneGraphAxisLabels(gr_BS_PtPt[0][0][0]);
+        gr_BS_PtPt[0][0][0]->DrawClone("APL");
+    } // end of bootstrap
 
 
     // ########### draw graphs ###########
@@ -931,6 +1261,12 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     //centr
     for ( int cW = 0; cW < nCW; cW++ )
         drawGraph(grNN[cW][etaId], markers[cW], colors[cW], cW == 0 ? "AP" : "P");
+
+    if ( doBootstrap )
+    {
+        gr_BS_NN[0][0][0]->Draw("P");
+    }
+
 
     grNN[0][etaId]->SetMinimum( 0 );
 
@@ -974,7 +1310,6 @@ void analyse_FB_TREE(int LIST_ID_FOR_INEFF=-1) // TString inputFileName = "Merge
     if ( doBootstrap )
     {
         gr_BS_PtPt[0][0][0]->Draw("P");
-        //        gr_PtPt_c10_BS->Write();
     }
 
     grPtPt[0][etaId]->SetMinimum( 0 );

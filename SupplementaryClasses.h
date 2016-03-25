@@ -28,6 +28,8 @@ class WinPair
 public:
     float cBinMin;
     float cBinMax;
+    int etaW;
+    int phiW;
 
     double NN_nF;
     double NN_nB;
@@ -73,11 +75,17 @@ public:
     TH1D *hist1D_bCorr_BS_NN;
     TH1D *hist1D_bCorr_BS_PtPt;
 
+    //run-by-run histos
+    TH1D **hist1D_multDistr_RunByRun_F;//[nTrees][nEtaBr];
+    TH1D **hist1D_multDistr_RunByRun_B;//[nTrees][nEtaBr];
+    TH1D **hist1D_avPtDistr_RunByRun_F;//[nTrees][nEtaBr];
+    TH1D **hist1D_avPtDistr_RunByRun_B;//[nTrees][nEtaBr];
 
     WinPair();
 
-    void init(float _cMin, float _cMax, int etaW, int phiW, int MAX_N_EVENTS_FOR_BOOTSTRAP = 0 );
-    void fill( Float_t cPerc, UShort_t nF, UShort_t nB, Float_t PtF, Float_t PtB );
+    void init(float _cMin, float _cMax, int _etaW, int _phiW, int MAX_N_EVENTS_FOR_BOOTSTRAP = 0 );
+    void initRunByRunHistos(int nRuns, const int *runListNumbers);
+    void fill(Float_t cPerc, UShort_t nF, UShort_t nB, Float_t PtF, Float_t PtB, int treeId = -1 );
     void calcCorrCoeffs();
     void performBootstrapping(int corrType); //0-NN, 1-PtPt, 2-PtN
 
@@ -86,6 +94,11 @@ private:
                  , const double &F2, const int &nEvents, const int &ifRel=0);
 };
 
+//class WinQA
+//{
+//    TH1D *hist1D_multInWin;
+
+//};
 
 struct CentralityOccupancy
 {

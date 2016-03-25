@@ -33,7 +33,7 @@ void draw_bootstrap_results()
     f[5] = new TFile( "output_histos_graphs_1mln.root" );
     f[6] = new TFile( "output_histos_graphs_2mln.root" );
     f[7] = new TFile( "output_histos_graphs_5mln.root" );
-    f[8] = new TFile( "output_histos_graphs_ALL_14mln.root" );
+    f[8] = new TFile( "DATA_ALL_EVENTS_with_BS_cW_10_5_2_5/output_histos_graphs_cW10_V0M.root" );
 
 
     const int nFiles = 9;
@@ -56,7 +56,7 @@ void draw_bootstrap_results()
 
     TCanvas *canv_graphs = new TCanvas("canv_graphs","canv_graphs",150,50,700,600 );
     tuneCanvas(canv_graphs);
-
+    canv_graphs->SetGrid(0,0);
 
     graphs[0][0][etaId]->SetTitle( ";centrality percentile;b_{corr}" );
 
@@ -81,7 +81,7 @@ void draw_bootstrap_results()
     leg->Draw();
 
 //return;
-    //prepare graphs with dependence on ineff
+    //prepare graphs with dependence on n events
 //    const float trueEff = 0.8;
 //    double ineffValues[] = { 0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5 };
 //    for ( int fId = 0; fId < nFiles; fId++ )
@@ -90,6 +90,9 @@ void draw_bootstrap_results()
     //const int nPoints = graphs[0][0][etaId]->GetN();
     int cW = 0;
     TGraphErrors *grErrorFromNevents[ nCentrBins[cW] ];
+
+    //also: get BS distr for bcorr in centr bins:
+    TH1D *hist1D_bCorr_BS[nFiles][nCentrBins[cW]];
 
     //double x, y;
     for ( int cBin = 0; cBin < nCentrBins[cW]; cBin++ )
@@ -102,6 +105,7 @@ void draw_bootstrap_results()
         for ( int fId = 0; fId < nFiles; fId++ )
         {
             TH2D *hist2D = (TH2D*)f[fId]->Get( Form("hist2D_PtPt_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaId, 0) );
+            hist1D_bCorr_BS[fId][cBin] = (TH1D*)f[fId]->Get( Form("hist1D_bCorr_BS_PtPt_c%.1f-%.1f_etaW_%d_phiW_%d;bCorr;entries", cBinMin, cBinMax, etaId, 0) );
 
             //take point and error from graph for this centrality class
             //graphs[fId][0][etaId]->GetPoint( i, x, y );
@@ -113,7 +117,7 @@ void draw_bootstrap_results()
     }
 
 
-    //draw dependence on ineff
+    //draw dependence on n events
     TCanvas *canv_error_from_nEvents = new TCanvas("canv_error_from_nEvents","canv_error_from_nEvents",250,150,700,600 );
     tuneCanvas(canv_error_from_nEvents);
 
@@ -153,6 +157,18 @@ void draw_bootstrap_results()
     canv_error_from_nEvents->SetLogy();
 
 
-
+    //draw canv_bCorr_BS_distr
+    if(0)
+    {
+        TCanvas *canv_bCorr_BS_distr = new TCanvas("canv_bCorr_BS_distr","canv_bCorr_BS_distr",450,250,700,600 );
+        tuneCanvas(canv_bCorr_BS_distr);
+        for ( int cBin = 0; cBin < nCentrBins[cW]; cBin++ )
+        {
+            for ( int fId = 0; fId < nFiles; fId++ )
+            {
+                hist1D_bCorr_BS[fId][cBin]->DrawCopy( cBin==0 ? "" : "same" );
+            }
+        }
+    }
 
 }
