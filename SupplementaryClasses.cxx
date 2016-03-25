@@ -17,6 +17,9 @@
 #include "TRandom3.h"
 #include "TMath.h"
 
+#include "TFile.h"
+#include "TString.h"
+
 #include "SupplementaryClasses.h"
 
 #include <iostream>
@@ -25,13 +28,73 @@
 using namespace std;
 
 
+BootstrapHistos::BootstrapHistos():
+  hist_avF(0)
+, hist_avB(0)
+, hist_avFB(0)
+, hist_avF2(0)
+, hist_DFB(0)
+, hist_DF2(0)
+{}
+
+void BootstrapHistos::InitHistos( const char *strType, float _cMin, float _cMax, int _etaW, int _phiW, double histRangeFB )
+{
+    cout << "InitHistos for BS - " << strType << endl;
+    initWithNameTitle( &hist_avF  , strType, "avF"    , _cMin, _cMax, _etaW, _phiW, histRangeFB );
+    initWithNameTitle( &hist_avB  , strType, "avB"    , _cMin, _cMax, _etaW, _phiW, histRangeFB );
+    initWithNameTitle( &hist_avFB , strType, "avFB"   , _cMin, _cMax, _etaW, _phiW, histRangeFB*histRangeFB );
+    initWithNameTitle( &hist_avF2 , strType, "avF2"   , _cMin, _cMax, _etaW, _phiW, histRangeFB*histRangeFB );
+    initWithNameTitle( &hist_DFB  , strType, "DFB"    , _cMin, _cMax, _etaW, _phiW, histRangeFB*10 );
+    initWithNameTitle( &hist_DF2  , strType, "DF2"    , _cMin, _cMax, _etaW, _phiW, histRangeFB*10 );
+    initWithNameTitle( &hist_bCorr, strType, "bCorr"  , _cMin, _cMax, _etaW, _phiW );
+    initWithNameTitle( &hist_C2   , strType, "C2"     , _cMin, _cMax, _etaW, _phiW );
+}
+
+void BootstrapHistos::initWithNameTitle( TH1D** hist, const char *strType, const char *strName, float _cMin, float _cMax, int _etaW, int _phiW, double histRange )
+{
+    TString strBSname  = Form("hist1D_BS_%s_%s_c%.1f-%.1f_etaW_%d_phiW_%d", strType, strName, _cMin, _cMax, _etaW, _phiW);
+    TString strBStitle = Form("hist1D_BS_%s_%s_c%.1f-%.1f_etaW_%d_phiW_%d;bCorr;entries", strType, strName, _cMin, _cMax, _etaW, _phiW);
+    *hist = new TH1D( strBSname, strBStitle, 4000, -histRange, histRange );
+}
+
+void BootstrapHistos::FillHistos( const CorrCoeffInfo &corrInfo )
+{
+//    cout << "FillHistos for BS" << endl;
+    hist_avF  ->Fill( corrInfo.avF   );
+    hist_avB  ->Fill( corrInfo.avB   );
+    hist_avFB ->Fill( corrInfo.avFB  );
+    hist_avF2 ->Fill( corrInfo.avF2  );
+    hist_DFB  ->Fill( corrInfo.DFB   );
+    hist_DF2  ->Fill( corrInfo.DF2   );
+    hist_bCorr->Fill( corrInfo.bCorr );
+    hist_C2   ->Fill( corrInfo.C2    );
+}
+
+void BootstrapHistos::WriteHistos()
+{
+    TString strDirName = Form( "dir_%s" , hist_bCorr->GetName() );
+    gFile->mkdir( strDirName.Data() );
+    gFile->cd( strDirName.Data() );
+
+    hist_bCorr->Write();
+    hist_C2   ->Write();
+
+    hist_DFB -> Write();
+    hist_DF2 -> Write();
+    hist_avFB-> Write();
+    hist_avF2-> Write();
+    hist_avF -> Write();
+    hist_avB -> Write();
+    gFile->cd();
+}
+
 
 // ##### WinPair
-
-
 WinPair::WinPair() :
     cBinMin(0)
   , cBinMax(100)
+  , etaW(-1)
+  , phiW(-1)
   , NN_nF(0)
   , NN_nB(0)
   , NN_nF_nB(0)
@@ -47,13 +110,14 @@ WinPair::WinPair() :
   , PtN_nF_PtB(0)
   , PtN_nF2(0)
   , PtN_Nevents(0)
+  , nRuns(-1)
 
-  , NN_bCorr(-1000)
-  , NN_C2(-1000)
-  , PtPt_bCorr(-1000)
-  , PtPt_C2(-1000)
-  , PtN_bCorr(-1000)
-  , PtN_C2(-1000)
+//  , NN_bCorr(-1000)
+//  , NN_C2(-1000)
+//  , PtPt_bCorr(-1000)
+//  , PtPt_C2(-1000)
+//  , PtN_bCorr(-1000)
+//  , PtN_C2(-1000)
 
   , hist2D_NN                (0)
   , hist2D_PtPt              (0)
@@ -68,11 +132,18 @@ WinPair::WinPair() :
   , BS_PtF(0)
   , BS_PtB(0)
 
+  , hist1D_multDistr_RunByRun_F(0x0)
+  , hist1D_multDistr_RunByRun_B(0x0)
+  , hist1D_avPtDistr_RunByRun_F(0x0)
+  , hist1D_avPtDistr_RunByRun_B(0x0)
+
 {}
-void WinPair::init(float _cMin, float _cMax, int etaW, int phiW, int MAX_N_EVENTS_FOR_BOOTSTRAP )
+void WinPair::init(float _cMin, float _cMax, int _etaW, int _phiW, int MAX_N_EVENTS_FOR_BOOTSTRAP )
 {
     cBinMin = _cMin;
     cBinMax = _cMax;
+    etaW = _etaW;
+    phiW = _phiW;
 
     TString strNN = Form("hist2D_NN_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
     hist2D_NN = new TH2D( strNN, strNN, 800, -0.5, 799.5, 800, -0.5, 799.5 );
@@ -87,17 +158,21 @@ void WinPair::init(float _cMin, float _cMax, int etaW, int phiW, int MAX_N_EVENT
     TString strEstPerc = Form("hist1D_EstimatorEntries_c%.1f-%.1f_etaW_%d_phiW_%d;percentile;entries", cBinMin, cBinMax, etaW, phiW);
     hist1D_EstimatorEntries = new TH1D( strEstPerc, strEstPerc, 20001, -0.5, 1000.5);
 
-    TString strMultDistrF = Form("hist1D_multDistrF_c%.1f-%.1f_etaW_%d_phiW_%d;n tracks;n events", cBinMin, cBinMax, etaW, phiW);
-    hist1D_multDistrF = new TH1D( strMultDistrF, strMultDistrF, 3001, -0.5, 3000.5);
+    TString strMultDistrF_name  = Form("hist1D_multDistrF_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
+    TString strMultDistrF_title = Form("hist1D_multDistrF_c%.1f-%.1f_etaW_%d_phiW_%d;n tracks;n events", cBinMin, cBinMax, etaW, phiW);
+    hist1D_multDistrF = new TH1D( strMultDistrF_name, strMultDistrF_title, 3001, -0.5, 3000.5);
 
-    TString strMultDistrB= Form("hist1D_multDistrB_c%.1f-%.1f_etaW_%d_phiW_%d;n tracks;n events", cBinMin, cBinMax, etaW, phiW);
-    hist1D_multDistrB = new TH1D( strMultDistrB, strMultDistrB, 3001, -0.5, 3000.5);
+    TString strMultDistrB_name  = Form("hist1D_multDistrB_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
+    TString strMultDistrB_title = Form("hist1D_multDistrB_c%.1f-%.1f_etaW_%d_phiW_%d;n tracks;n events", cBinMin, cBinMax, etaW, phiW);
+    hist1D_multDistrB = new TH1D( strMultDistrB_name, strMultDistrB_title, 3001, -0.5, 3000.5);
 
-    TString strPtF = Form("hist1D_PtF_c%.1f-%.1f_etaW_%d_phiW_%d;#LTp_{T}#GT Forward;n events", cBinMin, cBinMax, etaW, phiW);
-    hist1D_QA_PtF = new TH1D( strPtF, strPtF, 2002, -2, 2 );
+    TString strPtF_name = Form("hist1D_PtF_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
+    TString strPtF_title = Form("hist1D_PtF_c%.1f-%.1f_etaW_%d_phiW_%d;#LTp_{T}#GT Forward;n events", cBinMin, cBinMax, etaW, phiW);
+    hist1D_QA_PtF = new TH1D( strPtF_name, strPtF_title, 2002, -2, 2 );
 
-    TString strPtB= Form("hist1D_PtB_c%.1f-%.1f_etaW_%d_phiW_%d;#LTp_{T}#GT Backward;n events", cBinMin, cBinMax, etaW, phiW);
-    hist1D_QA_PtB = new TH1D( strPtB, strPtB, 2002, -2, 2 );
+    TString strPtB_name = Form("hist1D_PtB_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
+    TString strPtB_title = Form("hist1D_PtB_c%.1f-%.1f_etaW_%d_phiW_%d;#LTp_{T}#GT Backward;n events", cBinMin, cBinMax, etaW, phiW);
+    hist1D_QA_PtB = new TH1D( strPtB_name, strPtB_title, 2002, -2, 2 );
 
     if ( MAX_N_EVENTS_FOR_BOOTSTRAP > 0 )
     {
@@ -107,16 +182,60 @@ void WinPair::init(float _cMin, float _cMax, int etaW, int phiW, int MAX_N_EVENT
         BS_PtF = new double[MAX_N_EVENTS_FOR_BOOTSTRAP];
         BS_PtB = new double[MAX_N_EVENTS_FOR_BOOTSTRAP];
 
-        TString strBS_NN= Form("hist1D_bCorr_BS_NN_c%.1f-%.1f_etaW_%d_phiW_%d;bCorr;entries", cBinMin, cBinMax, etaW, phiW);
-        hist1D_bCorr_BS_NN = new TH1D( strBS_NN, strBS_NN, 2000, -1, 1 );
+        histos_BS_NN.InitHistos( "NN", cBinMin, cBinMax, etaW, phiW, 1000 );
+        histos_BS_PtPt.InitHistos( "PtPt", cBinMin, cBinMax, etaW, phiW );
 
-        TString strBS_PtPt= Form("hist1D_bCorr_BS_PtPt_c%.1f-%.1f_etaW_%d_phiW_%d;bCorr;entries", cBinMin, cBinMax, etaW, phiW);
-        hist1D_bCorr_BS_PtPt = new TH1D( strBS_PtPt, strBS_PtPt, 2000, -1, 1 );
+//        TString strBS_NN_name  = Form("hist1D_bCorr_BS_NN_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
+//        TString strBS_NN_title = Form("hist1D_bCorr_BS_NN_c%.1f-%.1f_etaW_%d_phiW_%d;bCorr;entries", cBinMin, cBinMax, etaW, phiW);
+//        hist1D_bCorr_BS_NN = new TH1D( strBS_NN_name, strBS_NN_title, 2000, -1, 1 );
+
+//        TString strBS_PtPt_name  = Form("hist1D_bCorr_BS_PtPt_c%.1f-%.1f_etaW_%d_phiW_%d", cBinMin, cBinMax, etaW, phiW);
+//        TString strBS_PtPt_title = Form("hist1D_bCorr_BS_PtPt_c%.1f-%.1f_etaW_%d_phiW_%d;bCorr;entries", cBinMin, cBinMax, etaW, phiW);
+//        hist1D_bCorr_BS_PtPt = new TH1D( strBS_PtPt_name, strBS_PtPt_title, 2000, -1, 1 );
 
     }
 
 }
-void WinPair::fill( Float_t cPerc, UShort_t nF, UShort_t nB, Float_t PtF, Float_t PtB )
+
+void WinPair::initRunByRunHistos( int _nRuns, const int *runListNumbers )
+{
+    nRuns = _nRuns;
+    hist1D_multDistr_RunByRun_F = new TH1D*[nRuns];
+    hist1D_multDistr_RunByRun_B = new TH1D*[nRuns];
+    hist1D_avPtDistr_RunByRun_F = new TH1D*[nRuns];
+    hist1D_avPtDistr_RunByRun_B = new TH1D*[nRuns];
+
+    TString str_hist_name;
+    for ( int r = 0; r < nRuns; r++ )
+    {
+        int runNumber = runListNumbers[r];
+        TString str_hist_title  = Form("%d", runNumber);
+
+        //mult
+        str_hist_name  = Form("hist1D_multDistr_winF_run_%d_c%.1f-%.1f_etaW_%d_phiW_%d", runNumber, cBinMin, cBinMax, etaW, phiW);
+        hist1D_multDistr_RunByRun_F[r] = new TH1D( str_hist_name, ";n tracks;n events", 1000, -0.5, 1000-0.5 );
+
+        str_hist_name  = Form("hist1D_multDistr_winB_run_%d_c%.1f-%.1f_etaW_%d_phiW_%d", runNumber, cBinMin, cBinMax, etaW, phiW);
+        hist1D_multDistr_RunByRun_B[r] = new TH1D( str_hist_name, ";n tracks;n events", 1000, -0.5, 1000-0.5 );
+
+        hist1D_multDistr_RunByRun_F[r]->SetTitle( str_hist_title );
+        hist1D_multDistr_RunByRun_B[r]->SetTitle( str_hist_title );
+
+        //av pT
+        str_hist_name  = Form("hist1D_avPtDistr_winF_run_%d_c%.1f-%.1f_etaW_%d_phiW_%d", runNumber, cBinMin, cBinMax, etaW, phiW);
+        hist1D_avPtDistr_RunByRun_F[r] = new TH1D( str_hist_name, ";#LTp_{T}#GT;n events", 1000, 0, 2 );
+
+        str_hist_name  = Form("hist1D_avPtDistr_winB_run_%d_c%.1f-%.1f_etaW_%d_phiW_%d", runNumber, cBinMin, cBinMax, etaW, phiW);
+        hist1D_avPtDistr_RunByRun_B[r] = new TH1D( str_hist_name, ";#LTp_{T}#GT;n events", 1000, 0, 2 );
+
+        hist1D_avPtDistr_RunByRun_F[r]->SetTitle( str_hist_title );
+        hist1D_avPtDistr_RunByRun_B[r]->SetTitle( str_hist_title );
+    }
+
+}
+
+
+void WinPair::fill(Float_t cPerc, UShort_t nF, UShort_t nB, Float_t PtF, Float_t PtB, int treeId )
 {
     //check if we in centrality bin
     if ( cPerc < cBinMin || cPerc > cBinMax )
@@ -126,6 +245,21 @@ void WinPair::fill( Float_t cPerc, UShort_t nF, UShort_t nB, Float_t PtF, Float_
     hist1D_EstimatorEntries->Fill(cPerc);
     hist1D_multDistrF->Fill(nF);
     hist1D_multDistrB->Fill(nB);
+
+    //QA run-by-run
+    if ( hist1D_multDistr_RunByRun_F != 0x0 )
+    {
+        //F
+        hist1D_multDistr_RunByRun_F[treeId]->Fill( nF);
+        if ( nF > 0 )
+            hist1D_avPtDistr_RunByRun_F[treeId]->Fill( PtF );
+
+        //B
+        hist1D_multDistr_RunByRun_B[treeId]->Fill( nB);
+        if ( nB > 0 )
+            hist1D_avPtDistr_RunByRun_B[treeId]->Fill( PtB );
+    }
+
 
     //NN
     hist2D_NN->Fill( nF, nB );
@@ -182,22 +316,52 @@ void WinPair::fill( Float_t cPerc, UShort_t nF, UShort_t nB, Float_t PtF, Float_
 
 void WinPair::calcCorrCoeffs()
 {
-    NN_bCorr    = _calc( 0, NN_nF, NN_nB, NN_nF_nB, NN_nF2, NN_Nevents );
-    NN_C2       = _calc( 1, NN_nF, NN_nB, NN_nF_nB, NN_nF2, NN_Nevents );
+    corrInfo_NN    = _calc( NN_nF, NN_nB, NN_nF_nB, NN_nF2, NN_Nevents );
+//    NN_C2       = _calc( NN_nF, NN_nB, NN_nF_nB, NN_nF2, NN_Nevents );
 
-    PtPt_bCorr    = _calc( 0, PtPt_PtF, PtPt_PtB, PtPt_PtF_PtB, PtPt_PtF2, PtPt_Nevents );
-    PtPt_C2       = _calc( 1, PtPt_PtF, PtPt_PtB, PtPt_PtF_PtB, PtPt_PtF2, PtPt_Nevents );
+    corrInfo_PtPt  = _calc( PtPt_PtF, PtPt_PtB, PtPt_PtF_PtB, PtPt_PtF2, PtPt_Nevents );
+//    PtPt_C2       = _calc( PtPt_PtF, PtPt_PtB, PtPt_PtF_PtB, PtPt_PtF2, PtPt_Nevents );
 
-    PtN_bCorr    = _calc( 0, PtN_nF, PtN_PtB, PtN_nF_PtB, PtN_nF2, PtN_Nevents, 1 );
-    PtN_C2       = _calc( 1, PtN_nF, PtN_PtB, PtN_nF_PtB, PtN_nF2, PtN_Nevents );
+    corrInfo_PtN   = _calc( PtN_nF, PtN_PtB, PtN_nF_PtB, PtN_nF2, PtN_Nevents, 1 );
+//    PtN_C2       = _calc( PtN_nF, PtN_PtB, PtN_nF_PtB, PtN_nF2, PtN_Nevents );
+}
+
+void WinPair::writeHistos()
+{
+    hist2D_NN->Write();
+    hist2D_PtPt->Write();
+    hist2D_PtN->Write();
+
+    hist1D_multDistrF->Write();
+    hist1D_multDistrB->Write();
+
+    hist1D_QA_PtF->Write();
+    hist1D_QA_PtB->Write();
+
+    if ( nRuns > 0 ) //we have run-by-run histos
+    {
+        for ( int treeId = 0; treeId < nRuns; treeId++ )
+        {
+            hist1D_multDistr_RunByRun_F[treeId]->Write();
+            hist1D_multDistr_RunByRun_B[treeId]->Write();
+            hist1D_avPtDistr_RunByRun_F[treeId]->Write();
+            hist1D_avPtDistr_RunByRun_B[treeId]->Write();
+        }
+    }
+    //                    wins[cW][cBin][etaW][phiW].hist2D_NN->ProfileX()->Write();
+    //                    wins[cW][cBin][etaW][phiW].hist2D_PtPt->ProfileX()->Write();
+    //                    wins[cW][cBin][etaW][phiW].hist2D_PtN->ProfileX()->Write();
+
 }
 
 //double WinPair::_calc(int type, double F, double B, double FB, double F2, int nEvents, int ifRel )
-double WinPair::_calc( int type, const double &F, const double &B, const double &FB
+CorrCoeffInfo WinPair::_calc( const double &F, const double &B, const double &FB
                        , const double &F2, const int &nEvents, const int &ifRel )
 {
+    CorrCoeffInfo corrInfo;
+
     if ( nEvents <= 0 )
-        return -1000;
+        return corrInfo;
     double meanF     =  F   / nEvents;     //printf( "<F> = %f\n", meanF );
     double meanB     =  B   / nEvents;     //printf( "<B> = %f\n", meanB );
     double meanFB    =  FB  / nEvents;    //printf( "<FB> = %f\n", meanFB );
@@ -210,21 +374,40 @@ double WinPair::_calc( int type, const double &F, const double &B, const double 
     //        printf( "meanF2 = %f\n, ",  meanF2 );
 
     double numerator = meanFB - meanF * meanB;
-    double denominator = 0;
-    if (type == 0) // bCorr
-        denominator = meanF2 - meanF*meanF;
-    else if (type == 1) // C2
-        denominator = meanF * meanB;
+    double denominator_bCorr = meanF2 - meanF*meanF;
+    double denominator_C2 = meanF * meanB;
+//    if (type == 0) // bCorr
+//        denominator = meanF2 - meanF*meanF;
+//    else if (type == 1) // C2
+//        denominator = meanF * meanB;
 
-    double value = 0;
-    if (denominator!=0)
-        value = numerator / denominator;
+    //bcorr
+    double bcorr = -1000;
+    if ( denominator_bCorr != 0 )
+    {
+        bcorr = numerator / denominator_bCorr;
+        if (ifRel)
+            bcorr *= meanF/meanB;
+    }
 
-    if (ifRel)
-        value *= meanF/meanB;
+    //C2
+    double C2 = -1000;
+    if ( denominator_C2 !=0 )
+        C2 = numerator / denominator_C2;
 
+    //fill corrInfo data:
+    corrInfo.avF = meanF;
+    corrInfo.avB = meanB;
+    corrInfo.avFB = meanFB;
+    corrInfo.avF2 = meanF2;
 
-    return value;
+    corrInfo.DFB = numerator;
+    corrInfo.DF2 = denominator_bCorr;
+
+    corrInfo.bCorr = bcorr;
+    corrInfo.C2 = C2;
+
+    return corrInfo;
 }
 
 
@@ -255,7 +438,7 @@ void WinPair::performBootstrapping(int corrType)
         double *F;
         double *B;
 
-        cout << ">>> start bootstrap event loop..." << endl;
+//        cout << ">>> start bootstrap event loop..." << endl;
         for ( int ev = 0; ev < _nDataEvents; ev++ )
         {
             int id = TMath::Nint( gRandom->Uniform(-0.5, _nDataEvents-0.5) );
@@ -287,17 +470,21 @@ void WinPair::performBootstrapping(int corrType)
         }
 //        cout << ">>> BS_Nevents = " << BS_Nevents << endl;
 
-        double BS_bCorr = _calc( 0, BS_F, BS_B, BS_FB, BS_F2, BS_Nevents );
-                cout << ">>> BS_bCorr = " << BS_bCorr << endl;
+        CorrCoeffInfo BS_corrInfo = _calc( BS_F, BS_B, BS_FB, BS_F2, BS_Nevents );
+//        double BS_bCorr = BS_corrInfo.bCorr;
+//                cout << ">>> BS_bCorr = " << BS_bCorr << endl;
         //double BS_C2    = _calc( 1, BS_F, BS_B, BS_FB, BS_F2, BS_Nevents );
 
 
         if ( corrType == 0 )
-            hist1D_bCorr_BS_NN->Fill( BS_bCorr );
+            //hist1D_bCorr_BS_NN->Fill( BS_bCorr );
+            histos_BS_NN.FillHistos( BS_corrInfo );
         else if ( corrType == 1 )
-            hist1D_bCorr_BS_PtPt->Fill( BS_bCorr );
+//            hist1D_bCorr_BS_PtPt->Fill( BS_bCorr );
+            histos_BS_PtPt.FillHistos( BS_corrInfo );
+
     }
-    cout << ">>> END BS " << endl;
+//    cout << ">>> END BS " << endl;
 }
 
 
@@ -335,3 +522,25 @@ void CentralityOccupancy::fill( Float_t cPercV0M, Float_t cPercZDCvsZNA )
         nEventsV0M_and_ZDCZEM++;
 }
 
+
+
+
+void GraphsCorrInfo::WriteGraphs()
+{
+    TString strDirName = Form( "dir_%s" , gr_bCorr->GetName() );
+    gFile->mkdir( strDirName.Data() );
+    gFile->cd( strDirName.Data() );
+
+    gr_bCorr->Write();
+    gr_C2   ->Write();
+
+    gr_DFB -> Write();
+    gr_DF2 -> Write();
+    gr_avFB-> Write();
+    gr_avF2-> Write();
+    gr_avF -> Write();
+    gr_avB -> Write();
+
+    gFile->cd();
+
+}

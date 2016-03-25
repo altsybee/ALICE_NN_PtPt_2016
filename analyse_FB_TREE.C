@@ -7,6 +7,7 @@
 
 #include "TObject.h"
 #include "TGraphErrors.h"
+#include "TH1.h"
 #include "TH1D.h"
 #include "TH2D.h"
 #include "TF1.h"
@@ -298,7 +299,7 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
     cout << ">>> nFiles = " << nFiles << endl;
     TFile *myFiles[400];
 
-    //fileIdByHand = 1; // !!!!
+    fileIdByHand = 1; // !!!!
     //    return;
 
     if ( fileIdByHand >= 0 )
@@ -717,14 +718,14 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
 
 
     //USED IN FINAL ANALYSIS: many centralities in one run
-//        const int nCW = 4; //nCentrWidths
-//        const double cWidths[nCW] = { 10, 5, 2, 1 };  //width of the centrality bins
-//        const double cStep[nCW] = { 10, 5, 2, 1 }; //centrality bins step
-//        const int nCentrBins[nCW] = { 8, 17, 42, 83 };//18 };//34 }; //n centrality bins
-//        const int nCW = 3; //nCentrWidths
-//        const double cWidths[nCW] = { 10, 5, 2  };  //width of the centrality bins
-//        const double cStep[nCW] = { 10, 5, 2  }; //centrality bins step
-//        const int nCentrBins[nCW] = { 8, 17, 42  };//18 };//34 }; //n centrality bins
+    //        const int nCW = 4; //nCentrWidths
+    //        const double cWidths[nCW] = { 10, 5, 2, 1 };  //width of the centrality bins
+    //        const double cStep[nCW] = { 10, 5, 2, 1 }; //centrality bins step
+    //        const int nCentrBins[nCW] = { 8, 17, 42, 83 };//18 };//34 }; //n centrality bins
+    //        const int nCW = 3; //nCentrWidths
+    //        const double cWidths[nCW] = { 10, 5, 2  };  //width of the centrality bins
+    //        const double cStep[nCW] = { 10, 5, 2  }; //centrality bins step
+    //        const int nCentrBins[nCW] = { 8, 17, 42  };//18 };//34 }; //n centrality bins
 
 
 
@@ -982,32 +983,7 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
         for ( int cBin = /*nCentrBins[cW]-3*/ 0; cBin < nCentrBins[cW]; cBin++ )
             for ( int etaW = 0; etaW < nEtaWins; etaW++ )
                 for ( int phiW = 0; phiW < nPhiWins; phiW++ )
-                {
-                    wins[cW][cBin][etaW][phiW].hist2D_NN->Write();
-                    wins[cW][cBin][etaW][phiW].hist2D_PtPt->Write();
-                    wins[cW][cBin][etaW][phiW].hist2D_PtN->Write();
-
-                    wins[cW][cBin][etaW][phiW].hist1D_multDistrF->Write();
-                    wins[cW][cBin][etaW][phiW].hist1D_multDistrB->Write();
-
-                    wins[cW][cBin][etaW][phiW].hist1D_QA_PtF->Write();
-                    wins[cW][cBin][etaW][phiW].hist1D_QA_PtB->Write();
-
-                    if ( flag_fill_run_by_run_histos_in_wins )
-                    {
-                        for ( int treeId = 0; treeId < nTrees; treeId++ )
-                        {
-                            wins[cW][cBin][etaW][phiW].hist1D_multDistr_RunByRun_F[treeId]->Write();
-                            wins[cW][cBin][etaW][phiW].hist1D_multDistr_RunByRun_B[treeId]->Write();
-                            wins[cW][cBin][etaW][phiW].hist1D_avPtDistr_RunByRun_F[treeId]->Write();
-                            wins[cW][cBin][etaW][phiW].hist1D_avPtDistr_RunByRun_B[treeId]->Write();
-                        }
-                    }
-
-                    //                    wins[cW][cBin][etaW][phiW].hist2D_NN->ProfileX()->Write();
-                    //                    wins[cW][cBin][etaW][phiW].hist2D_PtPt->ProfileX()->Write();
-                    //                    wins[cW][cBin][etaW][phiW].hist2D_PtN->ProfileX()->Write();
-                }
+                    wins[cW][cBin][etaW][phiW].writeHistos();
 
     hist1D_QA_percentilesEstimator->Write();
     hist1D_QA_multALL->Write();
@@ -1019,10 +995,14 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
     canv_hist1D_QA_multALL->Write();
 
     // ########## MAIN PLOTTING FOR CORRS:
+    GraphsCorrInfo grNN[nCW][nEtaWins][nPhiWins];
+    GraphsCorrInfo grPtPt[nCW][nEtaWins][nPhiWins];
+    GraphsCorrInfo grPtN[nCW][nEtaWins][nPhiWins];
 
-    TGraphErrors *grNN [nCW][nEtaWins];
-    TGraphErrors *grPtPt[nCW][nEtaWins];
-    TGraphErrors *grPtN[nCW][nEtaWins];
+    GraphsCorrInfo grNN_fromMultF[nCW][nEtaWins][nPhiWins];
+    GraphsCorrInfo grPtPt_fromMultF[nCW][nEtaWins][nPhiWins];
+    GraphsCorrInfo grPtN_fromMultF[nCW][nEtaWins][nPhiWins];
+
 
     TGraphErrors *grFractEstByV0M[nCW];
     TGraphErrors *grFractEstByZDC[nCW];
@@ -1033,14 +1013,16 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
         grFractEstByZDC[cW] = new TGraphErrors;
         for ( int etaW = 0; etaW < nEtaWins; etaW++ )
         {
-            grNN[cW][etaW] = new TGraphErrors;
-            grPtPt[cW][etaW] = new TGraphErrors;
-            grPtN[cW][etaW] = new TGraphErrors;
+            for ( int phiW = 0; phiW < nPhiWins; phiW++ )
+            {
+                grNN[cW][etaW][phiW].SetNames( "NN", cW, etaW, phiW );
+                grPtPt[cW][etaW][phiW].SetNames( "PtPt", cW, etaW, phiW );
+                grPtN[cW][etaW][phiW].SetNames( "PtN", cW, etaW, phiW );
 
-            grNN[cW][etaW]->SetName(   Form( "grNN_c%d_eta%d", cW, etaW ) );
-            grPtPt[cW][etaW]->SetName( Form( "grPtPt_c%d_eta%d", cW, etaW ) );
-            grPtN[cW][etaW]->SetName(  Form( "grPtN_c%d_eta%d", cW, etaW ) );
-
+                grNN_fromMultF[cW][etaW][phiW].SetNames( "NN_fromMultF", cW, etaW, phiW );
+                grPtPt_fromMultF[cW][etaW][phiW].SetNames( "PtPt_fromMultF", cW, etaW, phiW );
+                grPtN_fromMultF[cW][etaW][phiW].SetNames( "PtN_fromMultF", cW, etaW, phiW );
+            }
         }
     }
 
@@ -1071,45 +1053,34 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
                     else
                         centr = multBinCenters[cW][cBin];
 
+                    double multF = w->hist1D_multDistrF->GetMean();
+
                     w->calcCorrCoeffs();
                     if(0)cout << "cMin=" << w->cBinMin << ", cMax=" << w->cBinMax << ", etaW=" << etaW
-                              << ", NN_bCorr= " << w->NN_bCorr
-                              << ", PtPt_bCorr= " << w->PtPt_bCorr
+                              << ", corrInfo_NN.bCorr= " << w->corrInfo_NN.bCorr
+                              << ", corrInfo_PtPt.bCorr= " << w->corrInfo_PtPt.bCorr
                               << endl;
 
-                    //fill graphs
-                    TGraphErrors *gr;
-                    //gr NN
-                    gr = grNN[cW][etaW];
-                    if ( fabs(w->NN_bCorr) < 10 )
-                        gr->SetPoint(gr->GetN(), centr, w->NN_bCorr);
-                    //gr PtPt
-                    gr = grPtPt[cW][etaW];
-                    if ( fabs(w->PtPt_bCorr) < 10 )
-                        gr->SetPoint(gr->GetN(), centr, w->PtPt_bCorr);
-                    //gr PtN
-                    gr = grPtN[cW][etaW];
-                    if ( fabs(w->PtN_bCorr) < 10 )
-                        gr->SetPoint(gr->GetN(), centr, w->PtN_bCorr);
 
+                    //fill graphs
+                    grNN[cW][etaW][phiW].SetPoints( centr, &w->corrInfo_NN );
+                    grPtPt[cW][etaW][phiW].SetPoints( centr, &w->corrInfo_PtPt );
+                    grPtN[cW][etaW][phiW].SetPoints( centr, &w->corrInfo_PtN );
+
+                    grNN_fromMultF[cW][etaW][phiW].SetPoints( multF, &w->corrInfo_NN );
+                    grPtPt_fromMultF[cW][etaW][phiW].SetPoints( multF, &w->corrInfo_PtPt );
+                    grPtN_fromMultF[cW][etaW][phiW].SetPoints( multF, &w->corrInfo_PtN );
                 }
         }
 
-    //    for ( int cW = 0; cW < nCW; cW++ )
-    //        for ( int etaW = 0; etaW < nEtaWins; etaW++ )
-    //        {
-    //            grNN[cW][etaW]->Write();
-    //            grPtPt[cW][etaW]->Write();
-    //            grPtN[cW][etaW]->Write();
-    //        }
-
-    //    fileOutput->Close();
-
-
 
     // ########## BOOTSTRAPING
-    TGraphErrors *gr_BS_NN[nCW][nEtaWins][nPhiWins];// = new TGraphErrors;
-    TGraphErrors *gr_BS_PtPt[nCW][nEtaWins][nPhiWins];// = new TGraphErrors;
+    GraphsCorrInfo gr_BS_NN[nCW][nEtaWins][nPhiWins];
+    GraphsCorrInfo gr_BS_PtPt[nCW][nEtaWins][nPhiWins];
+
+    GraphsCorrInfo gr_BS_NN_fromMultF[nCW][nEtaWins][nPhiWins];
+    GraphsCorrInfo gr_BS_PtPt_fromMultF[nCW][nEtaWins][nPhiWins];
+
     if ( doBootstrap )
     {
         cout << "Start bootstrapping..." << endl;
@@ -1118,42 +1089,43 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
 
         for ( int cW = 0; cW < nCW; cW++ )
         {
-            //                for ( int etaW = 0; etaW < nEtaWins; etaW++ )
-            for ( int phiW = 0; phiW < nPhiWins; phiW++ )
+            for ( int etaW = 0; etaW < nEtaWins; etaW++ )
             {
-                int etaW = 0; // TMP, FIXED FOR TESTS!
-
-                gr_BS_NN[cW][etaW][phiW] = new TGraphErrors;
-                gr_BS_NN[cW][etaW][phiW]->SetName( Form("gr_BS_NN_cW%d_etaW%d_phiW%d", cW, etaW, phiW) );
-                gr_BS_PtPt[cW][etaW][phiW] = new TGraphErrors;
-                gr_BS_PtPt[cW][etaW][phiW]->SetName( Form("gr_BS_PtPt_cW%d_etaW%d_phiW%d", cW, etaW, phiW) );
-
-                for ( int cBin = /*nCentrBins[cW]-3*/ 0; cBin < nCentrBins[cW]; cBin++ )
+                for ( int phiW = 0; phiW < nPhiWins; phiW++ )
                 {
-                    WinPair *w = &wins[cW][cBin][etaW][phiW];
+                    //                int etaW = 0; // TMP, FIXED FOR TESTS!
 
-                    float centr = -1;
-                    if ( useCentrPercOrMult == 0 )
-                        centr = w->cBinMin + (w->cBinMax - w->cBinMin)/2;
-                    else
-                        centr = multBinCenters[cW][cBin];
+                    gr_BS_NN[cW][etaW][phiW].SetNames( "BS_NN", cW, etaW, phiW );
+                    gr_BS_PtPt[cW][etaW][phiW].SetNames( "BS_PtPt", cW, etaW, phiW );
 
+                    gr_BS_NN_fromMultF[cW][etaW][phiW].SetNames( "BS_NN_fromMultF", cW, etaW, phiW );
+                    gr_BS_PtPt_fromMultF[cW][etaW][phiW].SetNames( "BS_PtPt_fromMultF", cW, etaW, phiW );
 
-                    if ( !doBS_in_only_1_cBin || (doBS_in_only_1_cBin && cBin == 0) )
+                    for ( int cBin = /*nCentrBins[cW]-3*/ 0; cBin < nCentrBins[cW]; cBin++ )
                     {
+                        WinPair *w = &wins[cW][cBin][etaW][phiW];
+
+                        float centr = -1;
+                        if ( useCentrPercOrMult == 0 )
+                            centr = w->cBinMin + (w->cBinMax - w->cBinMin)/2;
+                        else
+                            centr = multBinCenters[cW][cBin];
+
+                        double multF = w->hist1D_multDistrF->GetMean();
+
                         // DO BOOTSTRAP NN
                         if (1)
                         {
                             cout << "  NN: processing cBin " << cBin << "..." << endl;
                             w->performBootstrapping(0);
 
-                            double BS_bCorr_mean = w->hist1D_bCorr_BS_NN->GetMean();
-                            double BS_bCorr_sigma = w->hist1D_bCorr_BS_NN->GetRMS();
+                            //from centr
+                            gr_BS_NN[cW][etaW][phiW].SetPointsWithErrorsFromHistos( centr, w->histos_BS_NN, doBS_in_only_1_cBin );
 
-                            gr_BS_NN[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
-                            gr_BS_NN[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
+                            //from multF
+                            gr_BS_NN_fromMultF[cW][etaW][phiW].SetPointsWithErrorsFromHistos( multF, w->histos_BS_NN, doBS_in_only_1_cBin );
 
-                            w->hist1D_bCorr_BS_NN->Write();
+                            w->histos_BS_NN.WriteHistos();
                         }
 
                         // DO BOOTSTRAP PtPt
@@ -1162,73 +1134,49 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
                             cout << "  PtPt: processing cBin " << cBin << "..." << endl;
                             w->performBootstrapping(1);
 
-                            double BS_bCorr_mean = w->hist1D_bCorr_BS_PtPt->GetMean();
-                            double BS_bCorr_sigma = w->hist1D_bCorr_BS_PtPt->GetRMS();
+                            //from centr
+                            gr_BS_PtPt[cW][etaW][phiW].SetPointsWithErrorsFromHistos( centr, w->histos_BS_PtPt, doBS_in_only_1_cBin );
 
-                            gr_BS_PtPt[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
-                            gr_BS_PtPt[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
+                            //from multF
+                            gr_BS_PtPt_fromMultF[cW][etaW][phiW].SetPointsWithErrorsFromHistos( multF, w->histos_BS_PtPt, doBS_in_only_1_cBin );
 
                             //QA drawing for BS PtPt:
-                            w->hist1D_bCorr_BS_PtPt->SetLineColor(kOrange - 5 + cW);
+                            w->histos_BS_PtPt.hist_bCorr->SetLineColor(kOrange - 5 + cW);
 
                             if (cBin==0)
-                                w->hist1D_bCorr_BS_PtPt->DrawCopy();
+                                w->histos_BS_PtPt.hist_bCorr->DrawCopy();
                             else
-                                w->hist1D_bCorr_BS_PtPt->DrawCopy("same");
+                                w->histos_BS_PtPt.hist_bCorr->DrawCopy("same");
 
-                            w->hist1D_bCorr_BS_PtPt->Write();
+                            //                            w->histos_BS_PtPt.hist_bCorr->Write();
+                            w->histos_BS_PtPt.WriteHistos();
                         }
-                    } // end of if doBS_in_only_1_cBin
-                    else // if doBS_in_only_1_cBin, copy BS results in cBin=0 to all other cBins!
-                    {
-                        // COPY BOOTSTRAP RESULTS FROM cBin==0 NN
-                        if (1)
-                        {
-                            cout << "  NN: copy BS results for cBin " << cBin << "..." << endl;
+                    } // end of cBin
+                    // #### write BS graphs
+                    //BS NN graph
+                    gr_BS_NN[cW][etaW][phiW].gr_bCorr->SetLineColor(kMagenta);
+                    gr_BS_NN[cW][etaW][phiW].gr_bCorr->SetMarkerColor(kMagenta);
+                    gr_BS_NN[cW][etaW][phiW].gr_bCorr->SetMarkerStyle(24);
+                    gr_BS_NN[cW][etaW][phiW].WriteGraphs();
 
-                            double BS_bCorr_mean = wins[cW][cBin][etaW][phiW].NN_bCorr; //take pre-calculated bCorr
-                            double BS_bCorr_sigma = wins[cW][0][etaW][phiW].hist1D_bCorr_BS_NN->GetRMS();
+                    gr_BS_NN_fromMultF[cW][etaW][phiW].WriteGraphs();
 
-                            gr_BS_NN[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
-                            gr_BS_NN[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
-                        }
+                    //BS PtPt graph
+                    gr_BS_PtPt[cW][etaW][phiW].gr_bCorr->SetLineColor(kMagenta);
+                    gr_BS_PtPt[cW][etaW][phiW].gr_bCorr->SetMarkerColor(kMagenta);
+                    gr_BS_PtPt[cW][etaW][phiW].gr_bCorr->SetMarkerStyle(24);
+                    gr_BS_PtPt[cW][etaW][phiW].WriteGraphs();
 
-                        // COPY BOOTSTRAP RESULTS FROM cBin==0 PtPt
-                        if (1)
-                        {
-                            cout << "  PtPt: copy BS results for cBin " << cBin << "..." << endl;
-
-                            double BS_bCorr_mean = wins[cW][cBin][etaW][phiW].PtPt_bCorr; //take pre-calculated bCorr
-                            double BS_bCorr_sigma = wins[cW][0][etaW][phiW].hist1D_bCorr_BS_PtPt->GetRMS();
-
-                            gr_BS_PtPt[cW][etaW][phiW]->SetPoint( cBin, centr, BS_bCorr_mean );
-                            gr_BS_PtPt[cW][etaW][phiW]->SetPointError( cBin, 0, BS_bCorr_sigma );
-
-                            //QA drawing for BS PtPt:
-                            w->hist1D_bCorr_BS_PtPt->SetLineColor(kOrange - 5 + cW);
-                            w->hist1D_bCorr_BS_PtPt->DrawCopy("same");
-                        }
-                    } // end of copy BS results in cBin=0 to all other cBins
-                } // end of cBin
-                // #### write BS graphs
-                //BS NN graph
-                gr_BS_NN[cW][etaW][phiW]->SetLineColor(kMagenta);
-                gr_BS_NN[cW][etaW][phiW]->SetMarkerColor(kMagenta);
-                gr_BS_NN[cW][etaW][phiW]->SetMarkerStyle(24);
-                gr_BS_NN[cW][etaW][phiW]->Write();
-                //BS PtPt graph
-                gr_BS_PtPt[cW][etaW][phiW]->SetLineColor(kMagenta);
-                gr_BS_PtPt[cW][etaW][phiW]->SetMarkerColor(kMagenta);
-                gr_BS_PtPt[cW][etaW][phiW]->SetMarkerStyle(24);
-                gr_BS_PtPt[cW][etaW][phiW]->Write();
-            } // end of phiW
+                    gr_BS_PtPt_fromMultF[cW][etaW][phiW].WriteGraphs();
+                } // end of phiW
+            } // end of etaW
         } // end of cW
 
         //NN
         TCanvas *canv_GrCoeff_BS_NN = new TCanvas("canv_GrCoeff_BS_NN","canv_GrCoeff_BS_NN",80,150,900,700 );
         tuneCanvas(canv_GrCoeff_BS_NN);
-        tuneGraphAxisLabels(gr_BS_NN[0][0][0]);
-        gr_BS_NN[0][0][0]->DrawClone("APL");
+        tuneGraphAxisLabels(gr_BS_NN[0][0][0].gr_bCorr);
+        gr_BS_NN[0][0][0].gr_bCorr->DrawClone("APL");
 
 
         //PtPt
@@ -1239,8 +1187,8 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
         //        grFromFit2D->SetLineColor(kRed);
         //        grFromFit2D->DrawClone("PL");
 
-        tuneGraphAxisLabels(gr_BS_PtPt[0][0][0]);
-        gr_BS_PtPt[0][0][0]->DrawClone("APL");
+        tuneGraphAxisLabels(gr_BS_PtPt[0][0][0].gr_bCorr);
+        gr_BS_PtPt[0][0][0].gr_bCorr->DrawClone("APL");
     } // end of bootstrap
 
 
@@ -1249,33 +1197,34 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
     int markers[] = { 20, 24, 5, 2, 21 };
 
     const int etaId = 0;
+    const int phiId = 0;
 
 
     // ########## NN
     TCanvas *canv_grNN = new TCanvas("canv_grNN","canv_grNN",20,50,700,600 );
     tuneCanvas(canv_grNN);
-    grNN[0][etaId]->SetTitle( ";centrality percentile;b_{corr}" ); //C_{2}
-    tuneGraphAxisLabels(grNN[0][etaId]);
+    grNN[0][etaId][phiId].gr_bCorr->SetTitle( ";centrality percentile;b_{corr}" ); //C_{2}
+    tuneGraphAxisLabels( grNN[0][etaId][phiId].gr_bCorr );
 
 
     //centr
     for ( int cW = 0; cW < nCW; cW++ )
-        drawGraph(grNN[cW][etaId], markers[cW], colors[cW], cW == 0 ? "AP" : "P");
+        drawGraph(grNN[cW][etaId][phiId].gr_bCorr, markers[cW], colors[cW], cW == 0 ? "AP" : "P");
 
     if ( doBootstrap )
     {
-        gr_BS_NN[0][0][0]->Draw("P");
+        gr_BS_NN[0][0][0].gr_bCorr->Draw("P");
     }
 
 
-    grNN[0][etaId]->SetMinimum( 0 );
+    grNN[0][etaId][phiId].gr_bCorr->SetMinimum( 0 );
 
     TLegend *leg = new TLegend(0.65,0.65,0.999,0.95);
     leg->SetFillColor(kWhite);
     leg->SetFillStyle(0);
     leg->SetBorderSize(0);
     for ( int cW = 0; cW < nCW; cW++ )
-        leg->AddEntry(grNN[cW][etaId], Form("class width %.1f", cWidths[cW]), "p");
+        leg->AddEntry(grNN[cW][etaId][phiId].gr_bCorr, Form("class width %.1f", cWidths[cW]), "p");
     leg->Draw();
 
     TLatex *tex = new TLatex(0.7,0.4, "#eta_{gap}=0.8, #delta#eta=0.4");
@@ -1299,27 +1248,27 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
     // ########## PtPt
     TCanvas *canv_grPtPt = new TCanvas("canv_grPtPt","canv_grPtPt",250,50,700,600 );
     tuneCanvas(canv_grPtPt);
-    grPtPt[0][etaId]->SetTitle( ";centrality percentile;b_{corr}" ); //C_{2}
-    tuneGraphAxisLabels(grPtPt[0][etaId]);
+    grPtPt[0][etaId][phiId].gr_bCorr->SetTitle( ";centrality percentile;b_{corr}" ); //C_{2}
+    tuneGraphAxisLabels( grPtPt[0][etaId][phiId].gr_bCorr );
 
 
     //centr
     for ( int cW = 0; cW < nCW; cW++ )
-        drawGraph(grPtPt[cW][etaId], markers[cW], colors[cW], cW == 0 ? "AP" : "P");
+        drawGraph(grPtPt[cW][etaId][phiId].gr_bCorr, markers[cW], colors[cW], cW == 0 ? "AP" : "P");
 
     if ( doBootstrap )
     {
-        gr_BS_PtPt[0][0][0]->Draw("P");
+        gr_BS_PtPt[0][0][0].gr_bCorr->Draw("P");
     }
 
-    grPtPt[0][etaId]->SetMinimum( 0 );
+    grPtPt[0][etaId][phiId].gr_bCorr->SetMinimum( 0 );
 
     leg = new TLegend(0.65,0.65,0.999,0.95);
     leg->SetFillColor(kWhite);
     leg->SetFillStyle(0);
     leg->SetBorderSize(0);
     for ( int cW = 0; cW < nCW; cW++ )
-        leg->AddEntry(grPtPt[cW][etaId], Form("class width %.1f", cWidths[cW]), "p");
+        leg->AddEntry(grPtPt[cW][etaId][phiId].gr_bCorr, Form("class width %.1f", cWidths[cW]), "p");
     leg->Draw();
 
     tex = new TLatex(0.7,0.4, "#eta_{gap}=0.8, #delta#eta=0.4");
@@ -1336,21 +1285,21 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
     // ########## PtN
     TCanvas *canv_grPtN = new TCanvas("canv_grPtN","canv_grPtN",450,50,700,600 );
     tuneCanvas(canv_grPtN);
-    grPtN[0][etaId]->SetTitle( ";centrality percentile;b_{corr}" ); //C_{2}
-    tuneGraphAxisLabels(grPtN[0][etaId]);
+    grPtN[0][etaId][phiId].gr_bCorr->SetTitle( ";centrality percentile;b_{corr}" ); //C_{2}
+    tuneGraphAxisLabels( grPtN[0][etaId][phiId].gr_bCorr );
 
 
     //centr 10
     for ( int cW = 0; cW < nCW; cW++ )
-        drawGraph(grPtN[cW][etaId], markers[cW], colors[cW], cW == 0 ? "AP" : "P");
+        drawGraph(grPtN[cW][etaId][phiId].gr_bCorr, markers[cW], colors[cW], cW == 0 ? "AP" : "P");
 
-    grPtN[0][etaId]->SetMinimum( 0 );
+    grPtN[0][etaId][phiId].gr_bCorr->SetMinimum( 0 );
     leg = new TLegend(0.65,0.65,0.999,0.95);
     leg->SetFillColor(kWhite);
     leg->SetFillStyle(0);
     leg->SetBorderSize(0);
     for ( int cW = 0; cW < nCW; cW++ )
-        leg->AddEntry(grPtN[cW][etaId], Form("class width %.1f", cWidths[cW]), "p");
+        leg->AddEntry(grPtN[cW][etaId][phiId].gr_bCorr, Form("class width %.1f", cWidths[cW]), "p");
     leg->Draw();
 
     tex = new TLatex(0.7,0.4, "#eta_{gap}=0.8, #delta#eta=0.4");
@@ -1450,11 +1399,16 @@ void analyse_FB_TREE( int fileIdByHand = -1, int nEventsByHand = -1, // )
     // ###### write graphs to output file
     for ( int cW = 0; cW < nCW; cW++ )
         for ( int etaW = 0; etaW < nEtaWins; etaW++ )
-        {
-            grNN[cW][etaW]->Write();
-            grPtPt[cW][etaW]->Write();
-            grPtN[cW][etaW]->Write();
-        }
+            for ( int phiW = 0; phiW < nPhiWins; phiW++ )
+            {
+                grNN[cW][etaW][phiW].WriteGraphs();
+                grPtPt[cW][etaW][phiW].WriteGraphs();
+                grPtN[cW][etaW][phiW].WriteGraphs();
+
+                grNN_fromMultF[cW][etaW][phiW].WriteGraphs();
+                grPtPt_fromMultF[cW][etaW][phiW].WriteGraphs();
+                grPtN_fromMultF[cW][etaW][phiW].WriteGraphs();
+            }
 
     fileOutput->Close();
 
